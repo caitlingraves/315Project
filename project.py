@@ -1,78 +1,112 @@
 import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
 
-# Load data from files
-orders_df = pd.read_csv("orders.csv/orders.csv")
-order_products_prior_df = pd.read_csv("order_products__prior.csv/order_products__prior.csv")
-products_df = pd.read_csv("products.csv/products.csv")
-
-# Select a single user (change the user_id as needed)
-
-# Merge orders with order_products_prior to get user-item interactions
-order_product_merge = pd.merge(orders_df, order_products_prior_df, on='order_id', how='inner')
-
-
-
-# Filter out rows without the target user_id
-user_order_product_merge = order_product_merge[order_product_merge['user_id'].isin(range(1, 301))]
-# Group by product_id to get interactions for the target user
-user_item_interactions = user_order_product_merge.groupby(['user_id', 'product_id']).size().reset_index(name='interaction_count')
-# Merge with products DataFrame to include product names
-user_item_interactions_with_names = pd.merge(user_item_interactions, products_df[['product_id', 'product_name']], on='product_id', how='left')
-
-# Save the simplified DataFrame to a new CSV file
-user_item_interactions_with_names.to_csv(f"user_interactions_with_names.csv", index=False)
-
-
+# # Load data from files
+# orders_df = pd.read_csv("orders.csv/orders.csv")
+# order_products_prior_df = pd.read_csv("order_products__prior.csv/order_products__prior.csv")
+# products_df = pd.read_csv("products.csv/products.csv")
 
 # # Merge orders with order_products_prior to get user-item interactions
 # order_product_merge = pd.merge(orders_df, order_products_prior_df, on='order_id', how='inner')
 
-# # Filter out rows without a user_id
-# order_product_merge = order_product_merge.dropna(subset=['user_id'])
+# # Filter out rows without the target user_id
+# user_order_product_merge = order_product_merge[order_product_merge['user_id'].isin(range(1, 20001))]
 
-# # Group by user_id and product_id to get user-item interactions and count occurrences
-# user_item_interactions = order_product_merge.groupby(['user_id', 'product_id']).size().unstack(fill_value=0)
+# # Group by user_id and product_id to get interactions for each user and product
+# user_item_interactions = user_order_product_merge.groupby(['user_id', 'product_id']).size().reset_index(name='interaction_count')
 
-# # Save the merged DataFrame to a new CSV file
-# user_item_interactions.to_csv("user_item_interactions.csv")
+# # Filter interactions to include only interaction counts of 3 or above
+# user_item_interactions_filtered = user_item_interactions[user_item_interactions['interaction_count'] >= 3]
 
-# Compute user similarity matrix using cosine similarity
-# user_similarity_matrix = cosine_similarity(user_item_interactions)
+# # Merge with products DataFrame to include product names
+# user_item_interactions_with_names = pd.merge(user_item_interactions_filtered, products_df[['product_id', 'product_name']], on='product_id', how='left')
 
-# # Function to generate recommendations for a target user
-# def generate_recommendations(target_user_id, user_item_interactions, user_similarity_matrix, n_recommendations=3):
-#     # Find the index of the target user in the user-item interactions matrix
-#     target_user_index = user_item_interactions.index.get_loc(target_user_id)
-    
-#     # Get similarities of the target user with other users
-#     target_user_similarities = user_similarity_matrix[target_user_index]
+# # Save the simplified DataFrame to a new CSV file
+# user_item_interactions_with_names.to_csv(f"user_interactions_with_names_filtered.csv", index=False)
 
-#     # Find users most similar to the target user
-#     similar_users_indices = target_user_similarities.argsort()[::-1]  # Sort in descending order
 
-#     # Initialize a list to store recommended item indices
-#     recommended_items = []
 
-#     # Iterate over similar users to find items to recommend
-#     for user_index in similar_users_indices:
-#         # Skip the target user
-#         if user_index == target_user_index:
-#             continue
+
+#user_item_interactions_with_names = pd.read_csv("user_interactions_with_names_filtered.csv")
+
+import pandas as pd
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import linear_kernel
+
+class ProductRecommendation:
+    def __init__(self, data):
+        self.data = data
+        self.user_item_matrix = self.construct_user_item_matrix()
+        self.product_names = data[['product_id', 'product_name']].drop_duplicates().set_index('product_id')
+        self.product_ids = self.product_names.index.tolist()
+        self.product_id_to_name = self.product_names.to_dict()['product_name']
+        self.tf_idf_matrix = self.construct_tf_idf_matrix()
+
+    def construct_user_item_matrix(self):
+        return pd.pivot_table(self.data, values='interaction_count', index='user_id', columns='product_id', fill_value=0)
+
+    def construct_tf_idf_matrix(self):
+        tfidf = TfidfVectorizer(stop_words='english')
+        tfidf_matrix = tfidf.fit_transform(self.product_names['product_name'])
+        return tfidf_matrix
+
+    def collaborative_filtering_recommendation(self, user_id, top_n=5):
+        user_interactions = self.user_item_matrix.loc[user_id]
+        user_interactions_sorted = user_interactions.sort_values(ascending=False)
+        interacted_products = user_interactions_sorted[user_interactions_sorted > 0].index.tolist()
+        recommendations = []
+
+        for product_id in interacted_products:
+            similar_products = self.user_item_matrix.corrwith(self.user_item_matrix[product_id])
+            similar_products = similar_products.dropna()
+            similar_products = similar_products.sort_values(ascending=False)
+            
+            for idx in range(len(similar_products.index)):
+                similar_product_id = similar_products.index[idx]
+                correlation = similar_products.values[idx]
+                if similar_product_id not in interacted_products and similar_product_id not in recommendations:
+                    recommendations.append(similar_product_id)
+                    if len(recommendations) == top_n:
+                        return recommendations
         
-#         # Find items that the similar user has ordered but the target user hasn't
-#         unrated_items = user_item_interactions.iloc[user_index][user_item_interactions.iloc[target_user_index] == 0]
-        
-#         # Add unrated items to recommended items list
-#         recommended_items.extend(unrated_items.index)
-        
-#         # Stop if enough recommendations are found
-#         if len(recommended_items) >= n_recommendations:
-#             break
-    
-#     return recommended_items[:n_recommendations]
+        return recommendations
 
-# # Example usage
-# target_user_id = 1  # Example target user ID
-# recommendations = generate_recommendations(target_user_id, user_item_interactions, user_similarity_matrix)
-# print("Recommendations for user", target_user_id, ":", recommendations)
+    def content_based_filtering_recommendation(self, user_id, top_n=5):
+        user_interactions = self.user_item_matrix.loc[user_id]
+        interacted_products = user_interactions[user_interactions > 0].index.tolist()
+        recommendations = []
+
+        for product_id in interacted_products:
+            idx = self.product_ids.index(product_id)
+            cosine_similarities = linear_kernel(self.tf_idf_matrix[idx], self.tf_idf_matrix).flatten()
+            related_products_indices = cosine_similarities.argsort()[::-1]
+            related_products_ids = [self.product_ids[i] for i in related_products_indices]
+            
+            for related_product_id in related_products_ids:
+                if related_product_id not in interacted_products and related_product_id not in recommendations:
+                    recommendations.append(related_product_id)
+                    if len(recommendations) == top_n:
+                        return recommendations
+
+        return recommendations
+
+
+# Read dataset from CSV
+user_item_interactions_with_names = pd.read_csv("user_interactions_with_names_filtered.csv")
+
+# Example usage:
+recommendation_system = ProductRecommendation(user_item_interactions_with_names)
+user_id = 4229
+top_n = 3
+
+# Collaborative filtering recommendation
+collab_filtering_recommendations = recommendation_system.collaborative_filtering_recommendation(user_id, top_n)
+print(f"Collaborative Filtering Recommendations for user {user_id}:")
+for product_id in collab_filtering_recommendations:
+    print(f"Product ID: {product_id}, Product Name: {recommendation_system.product_id_to_name[product_id]}")
+
+# Content-based filtering recommendation
+content_based_recommendations = recommendation_system.content_based_filtering_recommendation(user_id, top_n)
+print(f"\nContent-Based Filtering Recommendations for user {user_id}:")
+for product_id in content_based_recommendations:
+    print(f"Product ID: {product_id}, Product Name: {recommendation_system.product_id_to_name[product_id]}")
