@@ -17,7 +17,6 @@ user_actual_dict = order_user_products_df.groupby('user_id')['product_id'].apply
 
 # Read the final result files
 result_df_1 = pd.read_csv('user_interactions_with_names_filtered.csv')
-result_df_2 = pd.read_csv('user_interactions_with_names.csv')
 
 # Define the K values you want to evaluate
 k_values = [5, 20, 50, 100]
@@ -46,17 +45,15 @@ def calculate_precision_at_k(user_actual_dict, result_df, k_values):
 
 # Calculate Precision@K for the first final result file
 precision_at_k_1 = calculate_precision_at_k(user_actual_dict, result_df_1, k_values)
-# Calculate Precision@K for the second final result file
-precision_at_k_2 = calculate_precision_at_k(user_actual_dict, result_df_2, k_values)
 
 # Create a DataFrame to store the results
 results_df = pd.DataFrame({
     'Result File': ['ResultFiltered', 'ResultPlain'],
     # Precision@K
-    'Precision@5': [precision_at_k_1[5], precision_at_k_2[5]],
-    'Precision@20': [precision_at_k_1[20], precision_at_k_2[20]],
-    'Precision@50': [precision_at_k_1[50], precision_at_k_2[50]],
-    'Precision@100': [precision_at_k_1[100], precision_at_k_2[100]]
+    'Precision@5': [precision_at_k_1[5]],
+    'Precision@20': [precision_at_k_1[20]],
+    'Precision@50': [precision_at_k_1[50]],
+    'Precision@100': [precision_at_k_1[100]]
 })
 # Save the results DataFrame to a CSV file
-results_df.to_csv('results_accurary.csv', index=False, float_format='%.5f')
+results_df.to_csv('accurary.csv', index=False, float_format='%.5f')
