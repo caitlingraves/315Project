@@ -1,5 +1,7 @@
 import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import linear_kernel
 
 # # Load data from files
 # orders_df = pd.read_csv("orders.csv/orders.csv")
@@ -29,9 +31,6 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 #user_item_interactions_with_names = pd.read_csv("user_interactions_with_names_filtered.csv")
 
-import pandas as pd
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import linear_kernel
 
 class ProductRecommendation:
     def __init__(self, data):
@@ -51,6 +50,9 @@ class ProductRecommendation:
         return tfidf_matrix
 
     def collaborative_filtering_recommendation(self, user_id, top_n=5):
+        if user_id not in self.user_item_matrix.index:
+            return []
+        
         user_interactions = self.user_item_matrix.loc[user_id]
         user_interactions_sorted = user_interactions.sort_values(ascending=False)
         interacted_products = user_interactions_sorted[user_interactions_sorted > 0].index.tolist()
@@ -72,6 +74,9 @@ class ProductRecommendation:
         return recommendations
 
     def content_based_filtering_recommendation(self, user_id, top_n=5):
+        if user_id not in self.user_item_matrix.index:
+            return []
+        
         user_interactions = self.user_item_matrix.loc[user_id]
         interacted_products = user_interactions[user_interactions > 0].index.tolist()
         recommendations = []
@@ -90,13 +95,12 @@ class ProductRecommendation:
 
         return recommendations
 
-
+#Below is to get recommendations for 1 user:
 # Read dataset from CSV
 user_item_interactions_with_names = pd.read_csv("user_interactions_with_names_filtered.csv")
 
-# Example usage:
 recommendation_system = ProductRecommendation(user_item_interactions_with_names)
-user_id = 4229
+user_id = 4337
 top_n = 3
 
 # Collaborative filtering recommendation
@@ -110,3 +114,37 @@ content_based_recommendations = recommendation_system.content_based_filtering_re
 print(f"\nContent-Based Filtering Recommendations for user {user_id}:")
 for product_id in content_based_recommendations:
     print(f"Product ID: {product_id}, Product Name: {recommendation_system.product_id_to_name[product_id]}")
+
+
+##############################################################################################33
+#Below is to get recommendations for many users:
+# user_item_interactions_with_names = pd.read_csv("user_interactions_with_names_filtered.csv")
+
+# product_recommendation = ProductRecommendation(user_item_interactions_with_names)
+
+# num_users = 6000
+# recommendations_content = []
+# recommendations_collab = []
+
+
+# for user_id in range(1, num_users + 1):
+#     user_recommendations_collab = product_recommendation.collaborative_filtering_recommendation(user_id, top_n=1)
+#     user_recommendations_content = product_recommendation.content_based_filtering_recommendation(user_id, top_n=1)
+    
+#     if user_recommendations_collab:
+#         recommendations_content.append((user_id, user_recommendations_content[0]))
+#         recommendations_collab.append((user_id, user_recommendations_collab[0]))
+#         print("user appended: ", user_id)
+
+# products_df = pd.read_csv("products.csv/products.csv")
+# products = pd.read_csv("products.csv/products.csv")
+
+# recommendations_df = pd.DataFrame(recommendations_content, columns=['user_id', 'product_id'])
+# r2 = pd.DataFrame(recommendations_collab, columns=['user_id', 'product_id'])
+
+# r2 = pd.merge(r2, products[['product_id', 'product_name']], on='product_id', how='left')
+
+# recommendations_df = pd.merge(recommendations_df, products[['product_id', 'product_name']], on='product_id', how='left')
+
+# recommendations_df.to_csv('top_content.csv', index=False)
+# r2.to_csv('top_collab.csv', index=False)
